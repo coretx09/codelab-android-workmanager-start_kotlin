@@ -45,6 +45,7 @@ class BlurViewModel(application: Application) : ViewModel() {
      * @param blurLevel The amount to blur the image
      */
     internal fun applyBlur(blurLevel: Int) {
+         //Work Request
         val blurRequest = OneTimeWorkRequestBuilder<BlurWorker>()
             // Set Input Data (Key, Value)
             .setInputData(createInputDataForUri())
