@@ -23,10 +23,13 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.work.Data
+import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequest
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.example.background.workers.BlurWorker
+import com.example.background.workers.CleanupWorker
+import com.example.background.workers.SaveImageToFileWorker
 
 
 class BlurViewModel(application: Application) : ViewModel() {
@@ -45,14 +48,32 @@ class BlurViewModel(application: Application) : ViewModel() {
      * @param blurLevel The amount to blur the image
      */
     internal fun applyBlur(blurLevel: Int) {
-         //Work Request
-        val blurRequest = OneTimeWorkRequestBuilder<BlurWorker>()
-            // Set Input Data (Key, Value)
-            .setInputData(createInputDataForUri())
-            .build()
+
+        // Add WorkRequest to Cleanup temporary images
+        var continuaton = workManager
+            .beginUniqueWork(
+                IMAGE_MANIPULATION_WORK_NAME,
+                ExistingWorkPolicy.KEEP,
+                OneTimeWorkRequest.from(CleanupWorker::class.java))
+
+        // Add WorkRequest to blur the image
+        for (i in 0 until blurLevel){
+            val blurBuilder = OneTimeWorkRequestBuilder<BlurWorker>()
+            if (i == 0){
+                blurBuilder.setInputData(createInputDataForUri())
+            }
+
+            continuaton = continuaton.then(blurBuilder.build())
+        }
 
 
-        workManager.enqueue(blurRequest)
+        // Add WorkRequest to save the image to the filesystem
+        val save = OneTimeWorkRequest.Builder(SaveImageToFileWorker::class.java).build()
+
+        continuaton = continuaton.then(save)
+
+        // Actually start the work
+        continuaton.enqueue()
     }
 
     /**
